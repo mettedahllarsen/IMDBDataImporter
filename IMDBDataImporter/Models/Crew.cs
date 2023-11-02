@@ -6,16 +6,17 @@ using System.Threading.Tasks;
 
 namespace IMDBDataImporter.Models
 {
-
-	public class KnownFor
+	public class Crew
 	{
 		public string tconst { get; set; }
-		public string nconst { get; set; }
+		public string? directors { get; set; }
+		public string? writers { get; set; }
 
-		public KnownFor(string tconst, string nconst)
+		public Crew(string tconst, string? directors, string? writers)
 		{
 			this.tconst = tconst;
-			this.nconst = nconst;
+			this.directors = directors;
+			this.writers = writers;
 		}
 	}
 }

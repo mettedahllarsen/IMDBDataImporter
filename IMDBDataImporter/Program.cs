@@ -2,6 +2,7 @@
 using IMDBDataImporter.Models;
 using System.Collections.Immutable;
 using System.Data.SqlClient;
+using static Azure.Core.HttpHeader;
 
 // This C# program connects to a database using a SqlConnection object.
 // It establishes a connection to the "MovieDB" database on the local server
@@ -51,11 +52,11 @@ static void AddData(SqlConnection sqlConn)
 		Console.WriteLine("\nVælg tabel at tilføje data til:");
 		Console.WriteLine("1. Names");
 		Console.WriteLine("2. Titles");
-		Console.WriteLine("3. TitlesGenres");
+		Console.WriteLine("3. Titles_Genres");
 		Console.WriteLine("4. Directors");
 		Console.WriteLine("5. Genres");
 		Console.WriteLine("6. KnownFor");
-		Console.WriteLine("7. NamesProfessions");
+		Console.WriteLine("7. Names_Professions");
 		Console.WriteLine("8. Professions");
 		Console.WriteLine("9. Writers");
 		Console.WriteLine("0. Tilbage");
@@ -78,12 +79,12 @@ static void AddData(SqlConnection sqlConn)
 				bulkInserter.InsertDataIntoTitles(sqlConn, LoadTitlesData());
 				break;
 
-			case "3": // TitlesGenres
+			case "3": // Titles_Genres
 				sqlInserter.InsertDataIntoTitlesGenres(sqlConn, LoadTitlesData());
 				break;
 
 			case "4": // Directors
-
+				sqlInserter.InsertDataIntoDirectors(sqlConn, LoadCrewsData());
 				break;
 
 			case "5": // Genres
@@ -91,15 +92,19 @@ static void AddData(SqlConnection sqlConn)
 				break;
 
 			case "6": // KnownFor
+				sqlInserter.InsertDataIntoKnownFor(sqlConn, LoadNamesData());
 				break;
 
-			case "7": // NamesProfessions
+			case "7": // Names_Professions
+				sqlInserter.InsertDataIntoNamesProfessions(sqlConn, LoadNamesData());
 				break;
 
 			case "8": // Professions
+				sqlInserter.InsertDataIntoProfessions(sqlConn, LoadNamesData());
 				break;
 
 			case "9": // Writers
+				sqlInserter.InsertDataIntoWriters(sqlConn, LoadCrewsData());
 				break;
 
 			default:
@@ -116,11 +121,11 @@ static void DeleteData(SqlConnection sqlConn)
 		Console.WriteLine("\nVælg tabel at slette data fra:");
 		Console.WriteLine("1. Names");
 		Console.WriteLine("2. Titles");
-		Console.WriteLine("3. TitlesGenres");
+		Console.WriteLine("3. Titles_Genres");
 		Console.WriteLine("4. Directors");
 		Console.WriteLine("5. Genres");
 		Console.WriteLine("6. KnownFor");
-		Console.WriteLine("7. NamesProfessions");
+		Console.WriteLine("7. Names_Professions");
 		Console.WriteLine("8. Professions");
 		Console.WriteLine("9. Writers");
 		Console.WriteLine("0. Tilbage");
@@ -140,8 +145,8 @@ static void DeleteData(SqlConnection sqlConn)
 				DeleteDataFromTable(sqlConn, "Titles");
 				break;
 				
-			case "3": // TitlesGenres
-				DeleteDataFromTable(sqlConn, "TitlesGenres");
+			case "3": // Titles_Genres
+				DeleteDataFromTable(sqlConn, "Titles_Genres");
 				break;
 
 			case "4": // Directors
@@ -150,20 +155,20 @@ static void DeleteData(SqlConnection sqlConn)
 
 			case "5": // Genres
 				DeleteDataFromTable(sqlConn, "Genres");
-				ResetIdentityColumn(sqlConn, "Genres", "genreId");
+				ResetIdentityColumn(sqlConn, "Genres", "genreID");
 				break;
 
 			case "6": // KnownFor
 				DeleteDataFromTable(sqlConn, "KnownFor");
 				break;
 
-			case "7": // NamesProfessions
-				DeleteDataFromTable(sqlConn, "NamesProfessions");
+			case "7": // Names_Professions
+				DeleteDataFromTable(sqlConn, "Names_Professions");
 				break;
 
 			case "8": // Professions
 				DeleteDataFromTable(sqlConn, "Professions");
-				ResetIdentityColumn(sqlConn, "Professions", "professionId");
+				ResetIdentityColumn(sqlConn, "Professions", "professionID");
 				break;
 
 			case "9": // Writers
@@ -213,7 +218,7 @@ static List<Title> LoadTitlesData()
 {
 	List<Title> titles = new List<Title>();
 
-	foreach (string line in File.ReadLines(@"C:\temp\title.basics.tsv").Skip(1).Take(100))
+	foreach (string line in File.ReadLines(@"C:\temp\title.basics.tsv").Skip(1).Take(1000))
 	{
 		string[] values = line.Split("\t");
 		if (values.Length == 9)
@@ -229,15 +234,31 @@ static List<Name> LoadNamesData()
 {
 	List<Name> names = new List<Name>();
 
-	foreach (string line in File.ReadLines(@"C:\temp\name.basics.tsv").Skip(1).Take(100))
+	foreach (string line in File.ReadLines(@"C:\temp\name.basics.tsv").Skip(1).Take(1000))
 	{
 		string[] values = line.Split("\t");
 		if (values.Length == 6)
 		{
-			names.Add(new Name(values[0], values[1], ConvertToInt(values[2]), ConvertToInt(values[3])));
+			names.Add(new Name(values[0], values[1], ConvertToInt(values[2]), ConvertToInt(values[3]), values[4], values[5]));
 		}
 	}
 	return names;
+}
+
+static List<Crew> LoadCrewsData() 
+{ 
+	List<Crew> crews = new List<Crew>();
+
+	foreach (string line in File.ReadLines(@"C:\temp\title.crew.tsv").Skip(1).Take(1000)) 
+	{
+		string[] values = line.Split("\t");
+		if (values.Length == 3)
+		{
+			crews.Add(new Crew(values[0], values[1], values[2]));
+		}
+	}
+
+	return crews;
 }
 
 
