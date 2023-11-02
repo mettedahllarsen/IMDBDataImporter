@@ -37,11 +37,34 @@ namespace IMDBDataImporter
 				FillParameter(titleRow, "runtimeMinutes", title.runtimeMinutes);
 				titleTable.Rows.Add(titleRow);
 			}
-			SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConn,
-				SqlBulkCopyOptions.KeepNulls, null);
+			SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConn,SqlBulkCopyOptions.KeepNulls, null);
 			bulkCopy.DestinationTableName = "Titles";
 			bulkCopy.BulkCopyTimeout = 0;
 			bulkCopy.WriteToServer(titleTable);
+		}
+
+		public void InsertDataIntoNames(SqlConnection sqlConn, List<Name> names)
+		{
+			DataTable nameTable = new DataTable("Names");
+
+			nameTable.Columns.Add("nconst", typeof(string));
+			nameTable.Columns.Add("primaryName", typeof(string));
+			nameTable.Columns.Add("birthYear", typeof(int));
+			nameTable.Columns.Add("deathYear", typeof(int));
+			
+			foreach (Name name in names)
+			{
+				DataRow nameRow = nameTable.NewRow();
+				FillParameter(nameRow, "nconst", name.nconst);
+				FillParameter(nameRow, "primaryName", name.primaryName);
+				FillParameter(nameRow, "birthYear", name.birthYear);
+				FillParameter(nameRow, "deathYear", name.deathYear);
+				nameTable.Rows.Add(nameRow);
+			}
+			SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConn, SqlBulkCopyOptions.KeepNulls, null);
+			bulkCopy.DestinationTableName = "Names";
+			bulkCopy.BulkCopyTimeout = 0;
+			bulkCopy.WriteToServer(nameTable);
 		}
 
 		public void FillParameter(DataRow row,
