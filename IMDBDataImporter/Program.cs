@@ -1,8 +1,6 @@
-﻿using IMDBDataImporter;
+﻿using IMDBDataImporter.DataInserters;
 using IMDBDataImporter.Models;
-using System.Collections.Immutable;
 using System.Data.SqlClient;
-using static Azure.Core.HttpHeader;
 
 // This C# program connects to a database using a SqlConnection object.
 // It establishes a connection to the "MovieDB" database on the local server
@@ -10,46 +8,63 @@ using static Azure.Core.HttpHeader;
 // indicates that the server's SSL certificate will be trusted. The program
 // then proceeds to interact with the database based on user input.
 
-string ConnString = "server=localhost;database=MovieDB;" + "user id=sa;password=Mela14ad;TrustServerCertificate=True";
-SqlConnection sqlConn = new SqlConnection(ConnString);
-sqlConn.Open();
+string connectionString = "server=localhost;database=MovieDB;" + "user id=sa;password=Mela14ad;TrustServerCertificate=True";
+SqlConnection sqlConnection = new SqlConnection(connectionString);
 
-Console.WriteLine("Velkommen til IMDB Data Importer!");
-
-while (true)
+try
 {
-	Console.WriteLine("\nVil du slette data fra databasen eller tilføje data?");
-	Console.WriteLine("1. Tilføje data");
-	Console.WriteLine("2. Slette data");
-	Console.WriteLine("0. Afslut");
+	sqlConnection.Open();
 
-	string choice = Console.ReadLine();
+	Console.WriteLine("Velkommen til IMDB Data Importer!");
 
-	switch (choice)
-	{
-		case "1":
-			AddData(sqlConn);
-			break;
-
-		case "2":
-			DeleteData(sqlConn);
-			break;
-
-		case "0":
-			sqlConn.Close();
-			return; // Afslut programmet
-
-		default:
-			Console.WriteLine("Ugyldigt valg. Prøv igen.");
-			break;
-	}
-}
-
-static void AddData(SqlConnection sqlConn)
-{
 	while (true)
 	{
-		Console.WriteLine("\nVælg tabel at tilføje data til:");
+		Console.WriteLine("\nVælg en handling:");
+		Console.WriteLine("1. Indsæt data");
+		Console.WriteLine("2. Slet data");
+		Console.WriteLine("0. Afslut");
+
+		Console.Write("\nIndtast dit valg (0-2):");
+		string? choice = Console.ReadLine();
+
+		switch (choice)
+		{
+			case "1":
+				InsertData(sqlConnection);
+				break;
+
+			case "2":
+				DeleteData(sqlConnection);
+				break;
+
+			case "0":
+				sqlConnection.Close();
+				return;
+
+			default:
+				Console.WriteLine("\nUgyldigt valg. Prøv igen.");
+				break;
+		}
+	}
+}
+catch (Exception ex)
+{
+	Console.WriteLine("\nDer opstod en fejl ved oprettelse af forbindelsen: " + ex.Message);
+}
+finally
+{
+	sqlConnection.Close();
+}
+
+
+static void InsertData(SqlConnection sqlConnection)
+{
+	SqlBulkCopyInserter sqlBulkCopyInserter = new SqlBulkCopyInserter();
+	SqlCommandInserter sqlCommandInserter = new SqlCommandInserter();
+
+	while (true)
+	{
+		Console.WriteLine("\nVælg tabel:");
 		Console.WriteLine("1. Names");
 		Console.WriteLine("2. Titles");
 		Console.WriteLine("3. Titles_Genres");
@@ -61,60 +76,131 @@ static void AddData(SqlConnection sqlConn)
 		Console.WriteLine("9. Writers");
 		Console.WriteLine("0. Tilbage");
 
-		string choice = Console.ReadLine();
-
-		BulkInserter bulkInserter = new BulkInserter();
-		SQLInserter sqlInserter = new SQLInserter();
+		Console.Write("\nIndtast dit valg (0-9):");
+		string? choice = Console.ReadLine();
 
 		switch (choice)
 		{
-			case "0": // Tilbage
-				break; 
-
 			case "1": // Names
-				bulkInserter.InsertDataIntoNames(sqlConn, LoadNamesData());
+				sqlBulkCopyInserter.InsertDataIntoNames(sqlConnection, LoadNamesData());
 				break;
 
 			case "2": // Titles
-				bulkInserter.InsertDataIntoTitles(sqlConn, LoadTitlesData());
+				sqlBulkCopyInserter.InsertDataIntoTitles(sqlConnection, LoadTitlesData());
 				break;
 
 			case "3": // Titles_Genres
-				sqlInserter.InsertDataIntoTitlesGenres(sqlConn, LoadTitlesData());
+				sqlCommandInserter.InsertDataIntoTitlesGenres(sqlConnection, LoadTitlesData());
 				break;
 
 			case "4": // Directors
-				sqlInserter.InsertDataIntoDirectors(sqlConn, LoadCrewsData());
+				sqlCommandInserter.InsertDataIntoDirectors(sqlConnection, LoadCrewsData());
 				break;
 
 			case "5": // Genres
-				sqlInserter.InsertDataIntoGenres(sqlConn, LoadTitlesData());
+				sqlCommandInserter.InsertDataIntoGenres(sqlConnection, LoadTitlesData());
 				break;
 
 			case "6": // KnownFor
-				sqlInserter.InsertDataIntoKnownFor(sqlConn, LoadNamesData());
+				sqlCommandInserter.InsertDataIntoKnownFor(sqlConnection, LoadNamesData());
 				break;
 
 			case "7": // Names_Professions
-				sqlInserter.InsertDataIntoNamesProfessions(sqlConn, LoadNamesData());
+				sqlCommandInserter.InsertDataIntoNamesProfessions(sqlConnection, LoadNamesData());
 				break;
 
 			case "8": // Professions
-				sqlInserter.InsertDataIntoProfessions(sqlConn, LoadNamesData());
+				sqlCommandInserter.InsertDataIntoProfessions(sqlConnection, LoadNamesData());
 				break;
 
 			case "9": // Writers
-				sqlInserter.InsertDataIntoWriters(sqlConn, LoadCrewsData());
+				sqlCommandInserter.InsertDataIntoWriters(sqlConnection, LoadCrewsData());
+				break;
+
+			case "0": // Tilbage
 				break;
 
 			default:
-				Console.WriteLine("Ugyldigt valg. Prøv igen.");
+				Console.WriteLine("\nUgyldigt valg. Prøv igen.");
 				break;
+		}
+	}
+
+	static List<Title> LoadTitlesData()
+	{
+		List<Title> titles = new List<Title>();
+
+		foreach (string line in File.ReadLines(@"C:\temp\title.basics.tsv").Skip(1).Take(1000))
+		{
+			string[] values = line.Split("\t");
+			if (values.Length == 9)
+			{
+				titles.Add(new Title(values[0], values[1], values[2], values[3], ConvertToBool(values[4]), ConvertToInt(values[5]), ConvertToInt(values[6]), ConvertToInt(values[7]), values[8]));
+			}
+		}
+
+		return titles;
+	}
+
+	static List<Name> LoadNamesData()
+	{
+		List<Name> names = new List<Name>();
+
+		foreach (string line in File.ReadLines(@"C:\temp\name.basics.tsv").Skip(1).Take(1000))
+		{
+			string[] values = line.Split("\t");
+			if (values.Length == 6)
+			{
+				names.Add(new Name(values[0], values[1], ConvertToInt(values[2]), ConvertToInt(values[3]), values[4], values[5]));
+			}
+		}
+		return names;
+	}
+
+	static List<Crew> LoadCrewsData()
+	{
+		List<Crew> crews = new List<Crew>();
+
+		foreach (string line in File.ReadLines(@"C:\temp\title.crew.tsv").Skip(1).Take(1000))
+		{
+			string[] values = line.Split("\t");
+			if (values.Length == 3)
+			{
+				crews.Add(new Crew(values[0], values[1], values[2]));
+			}
+		}
+
+		return crews;
+	}
+
+	static bool ConvertToBool(string input)
+	{
+		if (input == "0")
+		{
+			return false;
+		}
+		else if (input == "1")
+		{
+			return true;
+		}
+		throw new ArgumentException(
+			"Kolonne er ikke 0 eller 1, men " + input);
+	}
+
+	static int? ConvertToInt(string input)
+	{
+		if (input.ToLower() == @"\n")
+		{
+			return null;
+		}
+		else
+		{
+			return int.Parse(input);
 		}
 	}
 }
 
-static void DeleteData(SqlConnection sqlConn) 
+static void DeleteData(SqlConnection sqlConnection) 
 {
 	while (true)
 	{
@@ -130,7 +216,8 @@ static void DeleteData(SqlConnection sqlConn)
 		Console.WriteLine("9. Writers");
 		Console.WriteLine("0. Tilbage");
 
-		string choice = Console.ReadLine();
+		Console.Write("\nIndtast dit valg (0-9):");
+		string? choice = Console.ReadLine();
 
 		switch (choice)
 		{
@@ -138,181 +225,80 @@ static void DeleteData(SqlConnection sqlConn)
 				break;
 
 			case "1": // Names
-				DeleteDataFromTable(sqlConn, "Names");
+				DeleteDataFromTable(sqlConnection, "Names");
 				break;
 
 			case "2": // Titles
-				DeleteDataFromTable(sqlConn, "Titles");
+				DeleteDataFromTable(sqlConnection, "Titles");
 				break;
 				
 			case "3": // Titles_Genres
-				DeleteDataFromTable(sqlConn, "Titles_Genres");
+				DeleteDataFromTable(sqlConnection, "Titles_Genres");
 				break;
 
 			case "4": // Directors
-				DeleteDataFromTable(sqlConn, "Directors");
+				DeleteDataFromTable(sqlConnection, "Directors");
 				break;
 
 			case "5": // Genres
-				DeleteDataFromTable(sqlConn, "Genres");
-				ResetIdentityColumn(sqlConn, "Genres", "genreID");
+				DeleteDataFromTable(sqlConnection, "Genres");
+				ResetIdentityColumn(sqlConnection, "Genres", "genreID");
 				break;
 
 			case "6": // KnownFor
-				DeleteDataFromTable(sqlConn, "KnownFor");
+				DeleteDataFromTable(sqlConnection, "KnownFor");
 				break;
 
 			case "7": // Names_Professions
-				DeleteDataFromTable(sqlConn, "Names_Professions");
+				DeleteDataFromTable(sqlConnection, "Names_Professions");
 				break;
 
 			case "8": // Professions
-				DeleteDataFromTable(sqlConn, "Professions");
-				ResetIdentityColumn(sqlConn, "Professions", "professionID");
+				DeleteDataFromTable(sqlConnection, "Professions");
+				ResetIdentityColumn(sqlConnection, "Professions", "professionID");
 				break;
 
 			case "9": // Writers
-				DeleteDataFromTable(sqlConn, "Writers");
+				DeleteDataFromTable(sqlConnection, "Writers");
 				break;
 
 			default:
-				Console.WriteLine("Ugyldigt valg. Prøv igen.");
+				Console.WriteLine("\nUgyldigt valg. Prøv igen.");
 				break;
 		}
 	}
-}
 
-static void DeleteDataFromTable(SqlConnection sqlConn, string tableName)
-{
-	try
+	static void DeleteDataFromTable(SqlConnection sqlConnection, string tableName)
 	{
-		string deleteQuery = $"DELETE FROM {tableName}";
-		SqlCommand deleteCommand = new SqlCommand(deleteQuery, sqlConn);
-		deleteCommand.ExecuteNonQuery();
-
-		Console.WriteLine($"Data fra {tableName} er slettet med succes.");
-	}
-	catch (Exception ex)
-	{
-		Console.WriteLine($"Der opstod en fejl under sletning af data fra {tableName}: " + ex.Message);
-	}
-}
-
-static void ResetIdentityColumn(SqlConnection sqlConn, string tableName, string identityColumnName)
-{
-	try
-	{
-		string resetQuery = $"DBCC CHECKIDENT ('{tableName}', RESEED, 0)";
-		SqlCommand resetCommand = new SqlCommand(resetQuery, sqlConn);
-		resetCommand.ExecuteNonQuery();
-
-		Console.WriteLine($"{identityColumnName} kolonne nulstillet i {tableName} tabel.");
-	}
-	catch (Exception ex)
-	{
-		Console.WriteLine($"Der opstod en fejl under nulstilling af {identityColumnName} kolonne i {tableName}: " + ex.Message);
-	}
-}
-
-static List<Title> LoadTitlesData()
-{
-	List<Title> titles = new List<Title>();
-
-	foreach (string line in File.ReadLines(@"C:\temp\title.basics.tsv").Skip(1).Take(1000))
-	{
-		string[] values = line.Split("\t");
-		if (values.Length == 9)
+		try
 		{
-			titles.Add(new Title(values[0], values[1], values[2], values[3], ConvertToBool(values[4]), ConvertToInt(values[5]), ConvertToInt(values[6]), ConvertToInt(values[7]), values[8]));
+			string deleteQuery = $"DELETE FROM {tableName}";
+			SqlCommand deleteCommand = new SqlCommand(deleteQuery, sqlConnection);
+			deleteCommand.ExecuteNonQuery();
+
+			Console.WriteLine($"\nData fra {tableName} er slettet med succes.");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"\nDer opstod en fejl under sletning af data fra {tableName}: " + ex.Message);
 		}
 	}
 
-	return titles;
-}
-
-static List<Name> LoadNamesData()
-{
-	List<Name> names = new List<Name>();
-
-	foreach (string line in File.ReadLines(@"C:\temp\name.basics.tsv").Skip(1).Take(1000))
+	static void ResetIdentityColumn(SqlConnection sqlConnection, string tableName, string identityColumnName)
 	{
-		string[] values = line.Split("\t");
-		if (values.Length == 6)
+		try
 		{
-			names.Add(new Name(values[0], values[1], ConvertToInt(values[2]), ConvertToInt(values[3]), values[4], values[5]));
+			string resetQuery = $"DBCC CHECKIDENT ('{tableName}', RESEED, 0)";
+			SqlCommand resetCommand = new SqlCommand(resetQuery, sqlConnection);
+			resetCommand.ExecuteNonQuery();
+
+			Console.WriteLine($"\n{identityColumnName} kolonne nulstillet i {tableName} tabel.");
 		}
-	}
-	return names;
-}
-
-static List<Crew> LoadCrewsData() 
-{ 
-	List<Crew> crews = new List<Crew>();
-
-	foreach (string line in File.ReadLines(@"C:\temp\title.crew.tsv").Skip(1).Take(1000)) 
-	{
-		string[] values = line.Split("\t");
-		if (values.Length == 3)
+		catch (Exception ex)
 		{
-			crews.Add(new Crew(values[0], values[1], values[2]));
+			Console.WriteLine($"\nDer opstod en fejl under nulstilling af {identityColumnName} kolonne i {tableName}: " + ex.Message);
 		}
 	}
 
-	return crews;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-static bool ConvertToBool(string input)
-{
-	if (input == "0")
-	{
-		return false;
-	}
-	else if (input == "1")
-	{
-		return true;
-	}
-	throw new ArgumentException(
-		"Kolonne er ikke 0 eller 1, men " + input);
-}
-
-static int? ConvertToInt(string input)
-{
-	if (input.ToLower() == @"\n")
-	{
-		return null;
-	}
-	else
-	{
-		return int.Parse(input);
-	}
-}
